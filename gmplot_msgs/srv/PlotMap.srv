@@ -1,0 +1,13 @@
+bool save_map   # True  - save to specified file
+                # False - store in temporary file and immediately open it in web browser
+
+float64 center_lat
+float64 center_lon
+uint8 zoom
+bool satellite_view
+
+string filename # Complete path to desired file.  Unused if save_map is false
+
+gmplot_msgs/PlotPoint[] points
+
+---
