@@ -35,6 +35,9 @@ class PlotGroup:
 
 # ROS node class that advertises the plot service
 class GmplotService:
+
+    MIN_TIME_BETWEEN_CALLS = 3.0
+
     def __init__(self):
         rospy.init_node('gmplot_service')
         self.srv = rospy.Service('plot_google_map', PlotMap, self.service_cb)
@@ -52,8 +55,8 @@ class GmplotService:
     # Service callback
     def service_cb(self, request):
         dt = (rospy.Time.now() - self.last_called_stamp).to_sec()
-        if dt < 10.0:
-            raise rospy.ServiceException("Minimum time between plot requests is 10 seconds.  It's only been %f seconds" % dt)
+        if dt < self.MIN_TIME_BETWEEN_CALLS:
+            raise rospy.ServiceException("Minimum time between plot requests is %f seconds.  It's only been %f seconds" % (self.MIN_TIME_BETWEEN_CALLS, dt))
 
         if len(request.points) == 0:
             raise rospy.ServiceException('No points present in request')
