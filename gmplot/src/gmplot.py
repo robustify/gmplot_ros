@@ -60,12 +60,14 @@ class GoogleMapPlotter(object):
         color = self.html_color_codes.get(color, color)
         self.points.append((lat, lng, color[1:], title))
 
-    def text(self, lat, lng, color='#000000', c=None, text="no implementation"):
+    def text(self, lat, lng, color='#000000', c=None, text="no implementation", marker=False):
         if c:
             color = c
         color = self.color_dict.get(color, color)
         color = self.html_color_codes.get(color, color)
-        self.text_points.append((lat, lng, color[1:], text))
+        self.text_points.append((lat-5e-5, lng, color[1:], text))
+        if marker:
+            self.marker(lat, lng, color)
 
     def scatter(self, lats, lngs, color=None, size=None, marker=True, c=None, s=None, **kwargs):
         color = color or c
