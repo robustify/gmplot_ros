@@ -1,13 +1,12 @@
-bool save_map   # True  - save to specified file
-                # False - store in temporary file and immediately open it in web browser
+bool save_map                     # True  - save to specified file
+                                  # False - store in temporary file and immediately open it in web browser
 
-float64 center_lat
-float64 center_lon
-uint8 zoom
-bool satellite_view
+string filename                   # Complete path to desired file.  Unused if save_map is false
+float64 center_lat                # Latitude of the center of the generated map
+float64 center_lon                # Longitude of the center of the generated map
+uint8 zoom                        # Integer level of zoom (0 to 20)
+bool satellite_view               # Show satellite view by default in generated map
 
-string filename # Complete path to desired file.  Unused if save_map is false
-
-gmplot_msgs/PlotPoint[] points
+gmplot_msgs/PlotPoint[] points    # Array of points to plot on generated map
 
 ---

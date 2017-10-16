@@ -6,3 +6,11 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 catkin_package()
+
+install(
+  PROGRAMS
+    src/gmplot_service.py
+    src/gmplot.py
+    src/color_dicts.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
