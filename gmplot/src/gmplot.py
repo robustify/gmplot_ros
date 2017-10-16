@@ -1,6 +1,4 @@
 import math
-import requests
-import json
 import os
 
 from color_dicts import mpl_color_map, html_color_codes
@@ -23,9 +21,6 @@ class GoogleMapPlotter(object):
         self.shapes = []
         self.points = []
         self.text_points = []
-        self.heatmap_points = []
-        self.radpoints = []
-        self.gridsetting = None
         self.coloricon = os.path.join(os.path.dirname(__file__), 'markers/%s.png')
         self.coloricon = self.coloricon.replace('\\', '\\\\')
         self.color_dict = mpl_color_map
@@ -36,22 +31,6 @@ class GoogleMapPlotter(object):
             self.map_type = 'google.maps.MapTypeId.SATELLITE'
         else:
             self.map_type = 'google.maps.MapTypeId.ROADMAP'
-
-    @classmethod
-    def from_geocode(cls, location_string, zoom=13):
-        lat, lng = cls.geocode(location_string)
-        return cls(lat, lng, zoom)
-
-    @classmethod
-    def geocode(self, location_string):
-        geocode = requests.get(
-            'http://maps.googleapis.com/maps/api/geocode/json?address="%s"' % location_string)
-        geocode = json.loads(geocode.text)
-        latlng_dict = geocode['results'][0]['geometry']['location']
-        return latlng_dict['lat'], latlng_dict['lng']
-
-    def grid(self, slat, elat, latin, slng, elng, lngin):
-        self.gridsetting = [slat, elat, latin, slng, elng, lngin]
 
     def marker(self, lat, lng, color='#FF0000', c=None, title="no implementation"):
         if c:
@@ -136,58 +115,9 @@ class GoogleMapPlotter(object):
         path = zip(lats, lngs)
         self.paths.append((path, settings))
 
-    def heatmap(self, lats, lngs, threshold=10, radius=10, gradient=None, opacity=0.6, dissipating=True):
-        """
-        :param lats: list of latitudes
-        :param lngs: list of longitudes
-        :param threshold:
-        :param radius: The hardest param. Example (string):
-        :return:
-        """
-        settings = {}
-        settings['threshold'] = threshold
-        settings['radius'] = radius
-        settings['gradient'] = gradient
-        settings['opacity'] = opacity
-        settings['dissipating'] = dissipating
-        settings = self._process_heatmap_kwargs(settings)
-
-        heatmap_points = []
-        for lat, lng in zip(lats, lngs):
-            heatmap_points.append((lat, lng))
-        self.heatmap_points.append((heatmap_points, settings))
-
-    def _process_heatmap_kwargs(self, settings_dict):
-        settings_string = ''
-        settings_string += "heatmap.set('threshold', %d);\n" % settings_dict['threshold']
-        settings_string += "heatmap.set('radius', %d);\n" % settings_dict['radius']
-        settings_string += "heatmap.set('opacity', %f);\n" % settings_dict['opacity']
-
-        dissipation_string = 'true' if settings_dict['dissipating'] else 'false'
-        settings_string += "heatmap.set('dissipating', %s);\n" % (dissipation_string)
-
-        gradient = settings_dict['gradient']
-        if gradient:
-            gradient_string = "var gradient = [\n"
-            for r, g, b, a in gradient:
-                gradient_string += "\t" + "'rgba(%d, %d, %d, %d)',\n" % (r, g, b, a)
-            gradient_string += '];' + '\n'
-            gradient_string += "heatmap.set('gradient', gradient);\n"
-
-            settings_string += gradient_string
-
-        return settings_string
-
-    def polygon(self, lats, lngs, color=None, c=None, **kwargs):
-        color = color or c
-        kwargs.setdefault("color", color)
-        settings = self._process_kwargs(kwargs)
-        shape = zip(lats, lngs)
-        self.shapes.append((shape, settings))
-
     # create the html file which include one google map and all points and
     # paths
-    def draw(self, htmlfile):
+    def draw(self, htmlfile, api_key=None):
         f = open(htmlfile, 'w')
         f.write('<html>\n')
         f.write('<head>\n')
@@ -200,11 +130,7 @@ class GoogleMapPlotter(object):
         f.write('<script type="text/javascript">\n')
         f.write('\tfunction initialize() {\n')
         self.write_map(f)
-        self.write_grids(f)
         self.write_points(f)
-        self.write_paths(f)
-        self.write_shapes(f)
-        self.write_heatmap(f)
         self.write_text(f)
         f.write('\t}\n')
         f.write('</script>\n')
@@ -213,6 +139,10 @@ class GoogleMapPlotter(object):
             '<body style="margin:0px; padding:0px;" onload="initialize()">\n')
         f.write(
             '\t<div id="map_canvas" style="width: 100%; height: 100%;"></div>\n')
+        if api_key:
+            print 'api key is %s' % api_key
+            f.write('<script async defer src="https://maps.googleapis.com/maps/api/js?key=' + api_key + '&callback=initMap"></script>')
+
         f.write('</body>\n')
         f.write('</html>\n')
         f.close()
@@ -220,33 +150,6 @@ class GoogleMapPlotter(object):
     #############################################
     # # # # # # Low level Map Drawing # # # # # #
     #############################################
-
-    def write_grids(self, f):
-        if self.gridsetting is None:
-            return
-        slat = self.gridsetting[0]
-        elat = self.gridsetting[1]
-        latin = self.gridsetting[2]
-        slng = self.gridsetting[3]
-        elng = self.gridsetting[4]
-        lngin = self.gridsetting[5]
-        self.grids = []
-
-        r = [
-            slat + float(x) * latin for x in range(0, int((elat - slat) / latin))]
-        for lat in r:
-            self.grids.append(
-                [(lat + latin / 2.0, slng + lngin / 2.0), (lat + latin / 2.0, elng + lngin / 2.0)])
-
-        r = [
-            slng + float(x) * lngin for x in range(0, int((elng - slng) / lngin))]
-        for lng in r:
-            self.grids.append(
-                [(slat + latin / 2.0, lng + lngin / 2.0), (elat + latin / 2.0, lng + lngin / 2.0)])
-
-        for line in self.grids:
-            settings = self._process_kwargs({"color": "#000000"})
-            self.write_polyline(f, line, settings)
 
     def write_points(self, f):
         for point in self.points:
@@ -273,7 +176,6 @@ class GoogleMapPlotter(object):
         f.write('\t\tmarker.setMap(map);\n')
         f.write('\n')
 
-
     def get_cycle(self, lat, lng, rad):
         # unit of radius: meter
         cycle = []
@@ -293,15 +195,6 @@ class GoogleMapPlotter(object):
                 (float(y * (180.0 / math.pi)), float(x * (180.0 / math.pi))))
         return cycle
 
-    def write_paths(self, f):
-        for path, settings in self.paths:
-            self.write_polyline(f, path, settings)
-
-    def write_shapes(self, f):
-        for shape, settings in self.shapes:
-            self.write_polygon(f, shape, settings)
-
-    # TODO: Add support for mapTypeId: google.maps.MapTypeId.SATELLITE
     def write_map(self,  f):
         f.write('\t\tvar centerlatlng = new google.maps.LatLng(%f, %f);\n' %
                 (self.center[0], self.center[1]))
@@ -326,75 +219,3 @@ class GoogleMapPlotter(object):
         f.write('\t\t});\n')
         f.write('\t\tmarker.setMap(map);\n')
         f.write('\n')
-
-    def write_polyline(self, f, path, settings):
-        clickable = False
-        geodesic = True
-        strokeColor = settings.get('color') or settings.get('edge_color')
-        strokeOpacity = settings.get('edge_alpha')
-        strokeWeight = settings.get('edge_width')
-
-        f.write('var PolylineCoordinates = [\n')
-        for coordinate in path:
-            f.write('new google.maps.LatLng(%f, %f),\n' %
-                    (coordinate[0], coordinate[1]))
-        f.write('];\n')
-        f.write('\n')
-
-        f.write('var Path = new google.maps.Polyline({\n')
-        f.write('clickable: %s,\n' % (str(clickable).lower()))
-        f.write('geodesic: %s,\n' % (str(geodesic).lower()))
-        f.write('path: PolylineCoordinates,\n')
-        f.write('strokeColor: "%s",\n' % (strokeColor))
-        f.write('strokeOpacity: %f,\n' % (strokeOpacity))
-        f.write('strokeWeight: %d\n' % (strokeWeight))
-        f.write('});\n')
-        f.write('\n')
-        f.write('Path.setMap(map);\n')
-        f.write('\n\n')
-
-    def write_polygon(self, f, path, settings):
-        clickable = False
-        geodesic = True
-        strokeColor = settings.get('edge_color') or settings.get('color')
-        strokeOpacity = settings.get('edge_alpha')
-        strokeWeight = settings.get('edge_width')
-        fillColor = settings.get('face_color') or settings.get('color')
-        fillOpacity= settings.get('face_alpha')
-        f.write('var coords = [\n')
-        for coordinate in path:
-            f.write('new google.maps.LatLng(%f, %f),\n' %
-                    (coordinate[0], coordinate[1]))
-        f.write('];\n')
-        f.write('\n')
-
-        f.write('var polygon = new google.maps.Polygon({\n')
-        f.write('clickable: %s,\n' % (str(clickable).lower()))
-        f.write('geodesic: %s,\n' % (str(geodesic).lower()))
-        f.write('fillColor: "%s",\n' % (fillColor))
-        f.write('fillOpacity: %f,\n' % (fillOpacity))
-        f.write('paths: coords,\n')
-        f.write('strokeColor: "%s",\n' % (strokeColor))
-        f.write('strokeOpacity: %f,\n' % (strokeOpacity))
-        f.write('strokeWeight: %d\n' % (strokeWeight))
-        f.write('});\n')
-        f.write('\n')
-        f.write('polygon.setMap(map);\n')
-        f.write('\n\n')
-
-    def write_heatmap(self, f):
-        for heatmap_points, settings_string in self.heatmap_points:
-            f.write('var heatmap_points = [\n')
-            for heatmap_lat, heatmap_lng in heatmap_points:
-                f.write('new google.maps.LatLng(%f, %f),\n' %
-                        (heatmap_lat, heatmap_lng))
-            f.write('];\n')
-            f.write('\n')
-            f.write('var pointArray = new google.maps.MVCArray(heatmap_points);' + '\n')
-            f.write('var heatmap;' + '\n')
-            f.write('heatmap = new google.maps.visualization.HeatmapLayer({' + '\n')
-            f.write('\n')
-            f.write('data: pointArray' + '\n')
-            f.write('});' + '\n')
-            f.write('heatmap.setMap(map);' + '\n')
-            f.write(settings_string)
