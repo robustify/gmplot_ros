@@ -131,6 +131,7 @@ class GoogleMapPlotter(object):
         f.write('\tfunction initialize() {\n')
         self.write_map(f)
         self.write_points(f)
+        self.write_paths(f)
         self.write_text(f)
         f.write('\t}\n')
         f.write('</script>\n')
@@ -195,6 +196,10 @@ class GoogleMapPlotter(object):
                 (float(y * (180.0 / math.pi)), float(x * (180.0 / math.pi))))
         return cycle
 
+    def write_paths(self, f):
+        for path, settings in self.paths:
+            self.write_polyline(f, path, settings)
+
     def write_map(self,  f):
         f.write('\t\tvar centerlatlng = new google.maps.LatLng(%f, %f);\n' %
                 (self.center[0], self.center[1]))
@@ -219,3 +224,29 @@ class GoogleMapPlotter(object):
         f.write('\t\t});\n')
         f.write('\t\tmarker.setMap(map);\n')
         f.write('\n')
+
+    def write_polyline(self, f, path, settings):
+        clickable = False
+        geodesic = True
+        strokeColor = settings.get('color') or settings.get('edge_color')
+        strokeOpacity = settings.get('edge_alpha')
+        strokeWeight = settings.get('edge_width')
+
+        f.write('var PolylineCoordinates = [\n')
+        for coordinate in path:
+            f.write('new google.maps.LatLng(%f, %f),\n' %
+                    (coordinate[0], coordinate[1]))
+        f.write('];\n')
+        f.write('\n')
+
+        f.write('var Path = new google.maps.Polyline({\n')
+        f.write('clickable: %s,\n' % (str(clickable).lower()))
+        f.write('geodesic: %s,\n' % (str(geodesic).lower()))
+        f.write('path: PolylineCoordinates,\n')
+        f.write('strokeColor: "%s",\n' % (strokeColor))
+        f.write('strokeOpacity: %f,\n' % (strokeOpacity))
+        f.write('strokeWeight: %d\n' % (strokeWeight))
+        f.write('});\n')
+        f.write('\n')
+        f.write('Path.setMap(map);\n')
+        f.write('\n\n')
