@@ -5,3 +5,4 @@ syntax: glob
 
 # Python bytecode files
 *.pyc
+gmplot/api_key.txt

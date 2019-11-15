@@ -33,6 +33,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import rospy
+import rospkg
 import tempfile
 import os
 from gmplot_msgs.msg import PlotPoint
@@ -77,8 +78,14 @@ class GmplotService:
         # Create a temporary file to store maps meant only for display
         self.tmp = tempfile.NamedTemporaryFile(suffix='.html')
 
-        # Load Google Maps API key as a parameter, if needed
-        self.api_key = rospy.get_param('~google_api_key', default=None)
+        # Load Google Maps API key from text file
+        key_file_path = rospkg.RosPack().get_path('gmplot') + '/api_key.txt'
+        try:
+            key_file = open(key_file_path, 'r')
+            self.api_key = key_file.read().strip()
+        except IOError as ex:
+            print(str(ex))
+            self.api_key = None
 
         self.last_called_stamp = rospy.Time(0)
 
@@ -136,6 +143,7 @@ class GmplotService:
         if request.save_map:
             # Just write map to designated file and be done
             gplot.draw(request.filename, self.api_key)
+            rospy.loginfo('Saving map to: %s' % request.filename)
         else:
             # Write the map to the temporary file and immediately open default
             # browser to view it
